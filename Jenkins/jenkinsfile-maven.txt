@@ -1,0 +1,72 @@
+pipeline{
+
+    agent any
+    
+    
+    tools {
+        maven 'apache-maven-3.5.2' 
+    }
+    
+    
+    environment {
+        http_proxy = 'http://DSZ-Proxy.wipro.com:8080'
+        https_proxy    = 'http://DSZ-Proxy.wipro.com:8080'
+    }
+
+    
+    stages{
+    
+        stage("Checkout stage"){
+        
+            steps{
+            
+                echo "In checkout step"
+                
+                git changelog: false, credentialsId: '23246b8a-5a3e-46eb-b834-3c1b7ed5c5f5', poll: false, url: 'http://wosggitlab.wipro.com/SA378776/RestfulProject.git'
+                
+            }
+        
+        }
+        
+        stage("Check maven if installed"){
+            
+            steps{
+                
+                echo "In build steps"
+                
+                //sh "sudo apt-get install maven2 -y --force-yes"
+                
+                sh "mvn -version"
+                
+            }
+            
+            //steps{
+                
+            //    echo "Into maing build"
+                
+            //    sh "mvn clean install"
+                
+            //}
+            
+        }
+        
+        stage("Build the artifact"){
+            
+            steps{
+
+                withEnv(["HTTP_PROXY=${env.http_proxy}", "HTTPS_PROXY=${env.https_proxy}"]){
+                    
+                    sh "export http_proxy=$HTTP_PROXY"
+                    sh "export https_proxy=$HTTPS_PROXY"
+                    
+                    //sh "mvn clean compile"
+                    sh "mvn clean install"    
+                }
+                
+            }
+            
+        }
+    
+    }
+
+}

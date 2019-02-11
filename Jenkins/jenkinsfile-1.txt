@@ -1,0 +1,150 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Build') {
+            steps {
+                echo 'Checkout SCMs...'
+                checkout(
+                    [$class: 'GitSCM', 
+                    branches: [[name: '*/master']], 
+                    doGenerateSubmoduleConfigurations: false, 
+                    extensions: [[
+                        $class: 'RelativeTargetDirectory', 
+                        relativeTargetDir: 'layoutTests']], 
+                        userRemoteConfigs: [[
+                            credentialsId: 'ssh_jenkins', 
+                            url: 'git@github.com:cristianestrellax6/open-library-layout-galen.git']]]
+                        )
+                checkout(
+                    [$class: 'GitSCM', 
+                    branches: [[name: '*/master']], 
+                    doGenerateSubmoduleConfigurations: false, 
+                    extensions: [[
+                        $class: 'RelativeTargetDirectory', 
+                        relativeTargetDir: 'apiTests']], 
+                        userRemoteConfigs: [[
+                            credentialsId: 'ssh_jenkins', 
+                            url: 'git@github.com:cristianestrellax6/open-library-api-newman.git']]]
+                        )
+                checkout(
+                    [$class: 'GitSCM', 
+                    branches: [[name: '*/master']], 
+                    doGenerateSubmoduleConfigurations: false, 
+                    extensions: [[
+                        $class: 'RelativeTargetDirectory', 
+                        relativeTargetDir: 'e2eTests']], 
+                        userRemoteConfigs: [[
+                            credentialsId: 'ssh_jenkins', 
+                            url: 'git@github.com:cristianestrellax6/open-library-protractor.git']]]
+                        )
+                        
+                echo 'Installing Dependencies'
+                nodejs('npm 9.8'){
+                    dir('layoutTests'){
+                        sh 'npm install'
+                    }
+                    dir('apiTests'){
+                        sh 'npm install'
+                    }
+                    dir('e2eTests'){
+                        sh 'npm install'
+                    }
+                }
+            }
+        }
+        stage('Test layout') {
+            steps {
+                echo 'Testing..'
+                nodejs('npm 9.8') {
+                    dir('layoutTests/suites'){
+                        script{
+                            try{
+                                sh 'make'
+                            }
+                            catch (exc) {
+                                currentBuild.result = 'UNSTABLE'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Test api') {
+            steps {
+                echo 'Testing..'
+                nodejs('npm 9.8') {
+                    dir('apiTests'){
+                        script{
+                            try{
+                                sh 'make'
+                            } 
+                            catch (exc) {
+                                currentBuild.result = 'UNSTABLE'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Test e2e') {
+            environment {
+                OL_CREDS = credentials('OL_UP')
+            }
+            steps {
+                echo 'Testing..'
+                nodejs('npm 9.8') {
+                    dir('e2eTests'){
+                        script{
+                            try{
+                                sh "make test usr=$OL_CREDS_USR psw=$OL_CREDS_PSW"
+                            }
+                            catch (exc) {
+                                currentBuild.result = 'UNSTABLE'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Reporting') {
+            steps {
+                echo 'Reporting Layout...'
+                publishHTML(
+                    [allowMissing: true, 
+                    alwaysLinkToLastBuild: true, 
+                    keepAll: true, 
+                    reportDir: 'layoutTests/reports', 
+                    reportFiles: 'report.html', 
+                    reportName: 'Layout tests report', 
+                    reportTitles: ''])
+
+                echo 'Reporting API...'
+                publishHTML(
+                    [allowMissing: true, 
+                    alwaysLinkToLastBuild: true, 
+                    keepAll: true, 
+                    reportDir: 'apiTests/reports', 
+                    reportFiles: 'OL-API-TESTS_report.html', 
+                    reportName: 'API tests report', 
+                    reportTitles: ''])
+
+                echo 'Reporting e2e...'
+                publishHTML(
+                    [allowMissing: true, 
+                    alwaysLinkToLastBuild: true, 
+                    keepAll: true, 
+                    reportDir: 'e2eTests/TestResults', 
+                    reportFiles: 'index.html', 
+                    reportName: 'e2e tests report', 
+                    reportTitles: ''])
+
+                echo 'Reporting junit...'
+                realtimeJUnit(
+                    allowEmptyResults: true, 
+                    testResults: 'apiTests/reports/OL-API-TESTS_report.xml') {}
+
+            }
+        }
+    }
+}

@@ -1,0 +1,33 @@
+node {
+	stage('checkout') { 
+		getRepo() 
+	}
+	stage('compiling, testing, packaging') { 
+		launchTests() 
+	}
+	stage('archive') { 
+		sh 'echo "temp action"' 
+	}
+}
+
+def getRepo() {
+	git 'https://github.com/mikerpost/mrflow.git'
+}
+
+def launchTests() { 
+	parallel chrome: {
+		runTests("Chrome")
+	}, firefox: {
+		runTests("Firefox")
+	}, safari: {
+		runTests("Safari")
+	}
+}
+
+def runTests(browser) { 
+	node {
+		sh "echo running in ${browser}"
+		sh 'pwd'
+		sh 'ls -ltrh '
+	}
+}

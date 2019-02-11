@@ -1,0 +1,33 @@
+node('slave-eclair') {
+  stage('Start Docker Container') {
+    bat '''chcp 65001
+    docker stop -t 0 jenkins_slave_bobura
+    docker rm -v jenkins_slave_bobura
+    docker run --name jenkins_slave_bobura -itd -u docker -w /home/docker -v "%WORKSPACE%":/mnt/jenkins tetengo/gcc:latest
+'''
+  }
+  stage('Clone from GitHub') {
+    bat '''chcp 65001
+    docker exec jenkins_slave_bobura bash -c "rm -rf /home/docker/bobura"
+    docker exec jenkins_slave_bobura bash -c "git clone https://github.com/kaorut/bobura.git"
+'''
+  }
+  stage('Configure') {
+    bat '''chcp 65001
+    copy ..\\..\\jenkinsfiles\\bobura\\jenkins_bobura_*.sh .
+    docker exec jenkins_slave_bobura bash -c "cp /mnt/jenkins/jenkins_bobura_*.sh /home/docker/bobura"
+    docker exec jenkins_slave_bobura bash -c "cd bobura && ./jenkins_bobura_configure.sh /home/docker/bobura"
+'''
+  }
+  stage('Build') {
+    bat '''chcp 65001
+    docker exec jenkins_slave_bobura bash -c "cd bobura && ./jenkins_bobura_check.sh /home/docker/bobura"
+'''
+  }
+  stage('Stop Docker Container') {
+    bat '''chcp 65001
+    docker stop -t 0 jenkins_slave_bobura
+    docker rm -v jenkins_slave_bobura
+'''
+  }
+}

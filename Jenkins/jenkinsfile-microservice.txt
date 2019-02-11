@@ -1,0 +1,34 @@
+#!groovy
+import hudson.*
+import hudson.model.*
+import jenkins.*
+import jenkins.model.*
+
+def envs
+node {
+    stage('Prepare'){
+		envs = readProperties  file: "${WORKSPACE}/../properties/config.properties"
+		echo "envs: ${envs}"
+    }
+}
+node('maven-image-builder') {
+    stage('Compile') {
+		checkout([$class: 'GitSCM', branches: [[name: 'develop']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[url: "${envs.gitURL}"]]])
+        sh '''
+        mvn clean install'''
+    }
+    stage('QA_Sonar'){
+        echo 'Pending'     
+    }
+    stage('Deploy_Artifact'){
+        sh '''
+		wget http://192.168.99.100:8081/artifactory/Dockerfiles/Arq-Dockerfiles/Dockerfile
+		docker build --build-arg MICRO="target/jpmorgan-super-simple-0.1.0-SNAPSHOT.jar" . -t docker-virtual.art.local/alicante-ms
+		docker login -u ci_user -p 4rt1f4ct0ry docker-virtual.art.local
+		docker push docker-virtual.art.local/alicante-ms
+		'''
+    }
+    stage('Deploy_to_Dev'){
+        echo 'Hello World'     
+    }
+}
